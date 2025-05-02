@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:confetti/confetti.dart';
 
 class InstagramZonePage extends StatefulWidget {
   const InstagramZonePage({Key? key}) : super(key: key);
@@ -10,362 +10,384 @@ class InstagramZonePage extends StatefulWidget {
   _InstagramZonePageState createState() => _InstagramZonePageState();
 }
 
-class _InstagramZonePageState extends State<InstagramZonePage> {
-  late WebViewController _controller;
+class _InstagramZonePageState extends State<InstagramZonePage> with WidgetsBindingObserver {
+  InAppWebViewController? _webViewController;
+  bool _isLoading = true;
+  bool _hasError = false;
+  String _errorMessage = '';
 
-  int _totalCoins = 0;
-  int _todayEarnings = 0;
-  int _minutesWatched = 0;
+  // Timer related variables
+  Timer? _timer;
+  int _remainingSeconds = 300; // 5 minutes = 300 seconds
+  bool _isTimerRunning = false;
+  int _coinsEarned = 0;
 
-  final int _maxMinutesPerDay = 90; // 1.5 hours max per day
-  final int _coinsPerMinute = 1;
-
-  bool _isShowingAd = false;
-  bool _isTimerActive = false;
-
-  Timer? _watchTimer;
-  Timer? _adTimer;
-
-  int _secondsWatched = 0;
-  int _secondsUntilNextAd = 0;
-  final int _adIntervalSeconds = 300; // 5 minutes
+  // Confetti controller for reward popup
+  late ConfettiController _confettiController;
 
   @override
   void initState() {
     super.initState();
-    _initWebView();
-    _loadStats();
-    _initAdTimer();
-  }
-
-  void _initWebView() {
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: (String url) {
-            if (!_isTimerActive) {
-              _startWatchTimer();
-            }
-          },
-          onNavigationRequest: (NavigationRequest request) {
-            if (request.url.contains('instagram.com')) {
-              return NavigationDecision.navigate;
-            }
-            return NavigationDecision.prevent;
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse('https://www.instagram.com/'));
+    WidgetsBinding.instance.addObserver(this);
+    _confettiController = ConfettiController(duration: const Duration(seconds: 2));
   }
 
   @override
-  void dispose() {
-    _watchTimer?.cancel();
-    _adTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _loadStats() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastResetDate = prefs.getString('instagramLastResetDate');
-    final today = DateTime.now().toString().split(' ')[0];
-
-    if (lastResetDate != today) {
-      await prefs.setString('instagramLastResetDate', today);
-      await prefs.setInt('instagramMinutesWatched', 0);
-      await prefs.setInt('instagramTodayEarnings', 0);
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Pause the timer when app goes to background
+    if (state == AppLifecycleState.paused) {
+      _pauseTimer();
+    } else if (state == AppLifecycleState.resumed) {
+      _resumeTimer();
     }
-
-    setState(() {
-      _totalCoins = prefs.getInt('coinBalance') ?? 0;
-      _minutesWatched = prefs.getInt('instagramMinutesWatched') ?? 0;
-      _todayEarnings = prefs.getInt('instagramTodayEarnings') ?? 0;
-    });
   }
 
-  void _initAdTimer() {
-    _secondsUntilNextAd = _adIntervalSeconds;
-    _adTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-      if (_isTimerActive && !_isShowingAd) {
-        setState(() {
-          _secondsUntilNextAd--;
-        });
+  void _startTimer() {
+    setState(() {
+      _isTimerRunning = true;
+    });
 
-        if (_secondsUntilNextAd <= 0) {
-          _showAd();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_remainingSeconds > 0) {
+          _remainingSeconds--;
+        } else {
+          _timer?.cancel();
+          _isTimerRunning = false;
+
+          // Add coins when timer completes
+          _coinsEarned += 10; // Add 10 coins for 5 minutes of Instagram usage
+
+          // Show reward popup
+          _showRewardPopup();
         }
-      }
+      });
     });
   }
 
-  void _startWatchTimer() {
-    if (_minutesWatched >= _maxMinutesPerDay) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('You\'ve reached the maximum watch time for today!')),
-      );
-      return;
+  void _pauseTimer() {
+    _timer?.cancel();
+  }
+
+  void _resumeTimer() {
+    if (_isTimerRunning) {
+      _startTimer();
     }
-
-    setState(() {
-      _isTimerActive = true;
-      _secondsWatched = 0;
-    });
-
-    _watchTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-      if (_isTimerActive && !_isShowingAd) {
-        setState(() {
-          _secondsWatched++;
-        });
-
-        if (_secondsWatched % 60 == 0) {
-          _awardCoinsForWatching();
-        }
-      }
-    });
   }
 
-  void _pauseWatchTimer() {
-    setState(() {
-      _isTimerActive = false;
-    });
-  }
-
-  Future<void> _awardCoinsForWatching() async {
-    if (_minutesWatched >= _maxMinutesPerDay) return;
-
-    final prefs = await SharedPreferences.getInstance();
-    final currentCoins = prefs.getInt('coinBalance') ?? 0;
-    final minutesWatched = prefs.getInt('instagramMinutesWatched') ?? 0;
-    final todayEarnings = prefs.getInt('instagramTodayEarnings') ?? 0;
-
-    await prefs.setInt('coinBalance', currentCoins + _coinsPerMinute);
-    await prefs.setInt('instagramMinutesWatched', minutesWatched + 1);
-    await prefs.setInt('instagramTodayEarnings', todayEarnings + _coinsPerMinute);
-
-    setState(() {
-      _totalCoins = currentCoins + _coinsPerMinute;
-      _minutesWatched = minutesWatched + 1;
-      _todayEarnings = todayEarnings + _coinsPerMinute;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('You earned $_coinsPerMinute coins!'),
-        duration: Duration(seconds: 1),
-      ),
-    );
-  }
-
-  Future<void> _showAd() async {
-    if (_isShowingAd) return;
-
-    setState(() {
-      _isShowingAd = true;
-      _secondsUntilNextAd = _adIntervalSeconds;
-    });
-
-    // Pause Instagram video if possible (best effort)
-    try {
-      await _controller.runJavaScript('document.querySelector("video")?.pause();');
-    } catch (e) {
-      print("Error pausing video: $e");
-    }
+  void _showRewardPopup() {
+    // Play confetti animation
+    _confettiController.play();
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
-        int remainingSeconds = 5;
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            Timer.periodic(Duration(seconds: 1), (timer) {
-              if (remainingSeconds <= 0) {
-                timer.cancel();
-                if (mounted) {
-                  Navigator.of(context).pop();
-                  _awardAdBonus();
-                  try {
-                    _controller.runJavaScript('document.querySelector("video")?.play();');
-                  } catch (e) {
-                    print("Error resuming video: $e");
-                  }
-                  setState(() {
-                    _isShowingAd = false;
-                  });
-                }
-              } else {
-                setStateDialog(() {
-                  remainingSeconds--;
-                });
-              }
-            });
-
-            return AlertDialog(
-              title: Text('Advertisement'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 300,
-                    height: 250,
-                    color: Colors.grey.shade300,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.ad_units, size: 50, color: Colors.grey.shade700),
-                          SizedBox(height: 20),
-                          Text('Advertisement', style: TextStyle(color: Colors.grey.shade700)),
-                          SizedBox(height: 40),
-                          CircularProgressIndicator(),
-                        ],
-                      ),
-                    ),
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
+          child: Container(
+            height: 300,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Confetti effect above the popup
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: ConfettiWidget(
+                    confettiController: _confettiController,
+                    blastDirectionality: BlastDirectionality.explosive,
+                    particleDrag: 0.05,
+                    emissionFrequency: 0.05,
+                    numberOfParticles: 20,
+                    gravity: 0.1,
+                    colors: const [
+                      Colors.green,
+                      Colors.blue,
+                      Colors.pink,
+                      Colors.orange,
+                      Colors.purple
+                    ],
                   ),
-                  SizedBox(height: 20),
-                  Text('Watch this ad to earn extra coins!'),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {}, // Disable skip for demo
-                  style: TextButton.styleFrom(foregroundColor: Colors.grey),
-                  child: Text('Skip ($remainingSeconds)'),
+                ),
+                const Icon(
+                  Icons.celebration,
+                  color: Colors.amber,
+                  size: 70,
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Congratulations!',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'You earned 10 Kshana Coins for spending time on Instagram!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                  ),
+                  child: const Text(
+                    'Continue Browsing',
+                    style: TextStyle(fontSize: 16, color: Colors.white),
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    // Reset timer for another 5 minutes
+                    setState(() {
+                      _remainingSeconds = 300;
+                      _startTimer();
+                    });
+                  },
                 ),
               ],
-            );
-          },
+            ),
+          ),
         );
       },
     );
   }
 
-  Future<void> _awardAdBonus() async {
-    final adBonus = 5;
-
-    final prefs = await SharedPreferences.getInstance();
-    final currentCoins = prefs.getInt('coinBalance') ?? 0;
-    final todayEarnings = prefs.getInt('instagramTodayEarnings') ?? 0;
-
-    await prefs.setInt('coinBalance', currentCoins + adBonus);
-    await prefs.setInt('instagramTodayEarnings', todayEarnings + adBonus);
-
+  void _reloadWebView() {
     setState(() {
-      _totalCoins = currentCoins + adBonus;
-      _todayEarnings = todayEarnings + adBonus;
+      _hasError = false;
+      _isLoading = true;
     });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Ad bonus: +$adBonus coins!'),
-        backgroundColor: Colors.green,
-      ),
+    _webViewController?.loadUrl(
+      urlRequest: URLRequest(url: WebUri('https://www.instagram.com/')),
     );
   }
 
   @override
+  void dispose() {
+    _timer?.cancel();
+    _confettiController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Instagram Zone'),
-        backgroundColor: Colors.red,
-        actions: [
-          Container(
-            margin: EdgeInsets.only(right: 16),
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.6),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.amber),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.monetization_on, color: Colors.amber, size: 16),
-                SizedBox(width: 4),
-                Text(
-                  '$_totalCoins',
-                  style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Container(
-            color: Colors.red.shade800,
-            padding: EdgeInsets.all(8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Today: $_minutesWatched/$_maxMinutesPerDay min',
-                  style: TextStyle(color: Colors.white),
-                ),
-                Text(
-                  'Earned: $_todayEarnings coins',
-                  style: TextStyle(color: Colors.amber),
-                ),
-              ],
-            ),
-          ),
-          if (_isTimerActive && !_isShowingAd)
-            Container(
-              color: Colors.amber.withOpacity(0.2),
-              padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+    return SafeArea(
+      child: Scaffold(
+        body: Column(
+          children: [
+            Expanded(
+              child: Stack(
                 children: [
-                  Icon(Icons.timer, size: 16, color: Colors.amber),
-                  SizedBox(width: 8),
-                  Text(
-                    'Next ad in: ${(_secondsUntilNextAd / 60).floor()}:${(_secondsUntilNextAd % 60).toString().padLeft(2, '0')}',
-                    style: TextStyle(color: Colors.amber),
+                  // Show error widget if there's an error
+                  if (_hasError)
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error_outline, size: 60, color: Colors.red),
+                          SizedBox(height: 20),
+                          Text('Unable to load Instagram', style: TextStyle(fontSize: 18)),
+                          SizedBox(height: 10),
+                          Text(_errorMessage, textAlign: TextAlign.center),
+                          SizedBox(height: 20),
+                          ElevatedButton(
+                            onPressed: _reloadWebView,
+                            child: Text('Try Again'),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    InAppWebView(
+                      initialUrlRequest: URLRequest(
+                        url: WebUri('https://www.instagram.com/'),
+                        headers: {
+                          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',
+                          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                          'Accept-Language': 'en-US,en;q=0.9',
+                        },
+                      ),
+                      initialOptions: InAppWebViewGroupOptions(
+                        crossPlatform: InAppWebViewOptions(
+                          javaScriptEnabled: true,
+                          mediaPlaybackRequiresUserGesture: false,
+                          useOnDownloadStart: true,
+                          userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',
+                          cacheEnabled: true,
+                          clearCache: false,
+                          preferredContentMode: UserPreferredContentMode.MOBILE,
+                          supportZoom: false,
+                          verticalScrollBarEnabled: false,
+                          horizontalScrollBarEnabled: false,
+                        ),
+                        android: AndroidInAppWebViewOptions(
+                          useHybridComposition: true,
+                          domStorageEnabled: true,
+                          databaseEnabled: true,
+                          supportMultipleWindows: false,
+                          builtInZoomControls: false,
+                          displayZoomControls: false,
+                          loadWithOverviewMode: true,
+                          useWideViewPort: false,
+                          forceDark: AndroidForceDark.OFF,
+                        ),
+                        ios: IOSInAppWebViewOptions(
+                          allowsInlineMediaPlayback: true,
+                          allowsBackForwardNavigationGestures: true,
+                          isFraudulentWebsiteWarningEnabled: false,
+                          allowsLinkPreview: false,
+                          disableLongPressContextMenuOnLinks: true,
+                        ),
+                      ),
+                      onWebViewCreated: (InAppWebViewController controller) {
+                        _webViewController = controller;
+
+                        // Add JavaScript to help bypass detection
+                        controller.evaluateJavascript(source: """
+                          (function() {
+                            // Override WebView detection properties
+                            Object.defineProperty(navigator, 'webdriver', {
+                              get: function() { return false; }
+                            });
+                            
+                            // Hide any elements that might block the view
+                            var style = document.createElement('style');
+                            style.textContent = `
+                              .dialog-container { display: none !important; }
+                              .update-your-browser { display: none !important; }
+                              .unsupported-browser { display: none !important; }
+                              .app-download-interstitial { display: none !important; }
+                            `;
+                            document.head.appendChild(style);
+                          })();
+                        """);
+                      },
+                      onLoadStart: (controller, url) {
+                        setState(() {
+                          _isLoading = true;
+                          _hasError = false;
+                        });
+                      },
+                      onLoadStop: (controller, url) {
+                        setState(() {
+                          _isLoading = false;
+
+                          // Start the timer when the page finishes loading
+                          if (!_isTimerRunning) {
+                            _startTimer();
+                          }
+                        });
+
+                        // Inject JS to bypass "browser not supported" screens
+                        controller.evaluateJavascript(source: """
+                          (function() {
+                            // Hide any elements related to browser detection
+                            var elementsToHide = document.querySelectorAll('.dialog-container, .update-your-browser, .unsupported-browser, .app-download-interstitial');
+                            elementsToHide.forEach(function(element) {
+                              element.style.display = 'none';
+                            });
+                            
+                            // Force mobile view if needed
+                            document.querySelector('meta[name="viewport"]').content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+                          })();
+                        """);
+                      },
+                      onLoadError: (controller, url, code, message) {
+                        setState(() {
+                          _isLoading = false;
+                          _hasError = true;
+                          _errorMessage = "Error $code: $message";
+                        });
+                        print("WebView Error: $code - $message");
+                      },
+                      shouldOverrideUrlLoading: (controller, navigationAction) async {
+                        var uri = navigationAction.request.url;
+                        if (uri.toString().contains('instagram://') ||
+                            uri.toString().contains('intent://instagram')) {
+                          return NavigationActionPolicy.CANCEL;
+                        }
+                        return NavigationActionPolicy.ALLOW;
+                      },
+                      onConsoleMessage: (controller, consoleMessage) {
+                        print("Console: ${consoleMessage.message}");
+                      },
+                    ),
+
+                  // Loading indicator
+                  if (_isLoading)
+                    const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+
+                  // Timer display - positioned lower on screen
+                  Positioned(
+                    top: 80, // Moved down from the top
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.timer,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            '${(_remainingSeconds ~/ 60).toString().padLeft(2, '0')}:${(_remainingSeconds % 60).toString().padLeft(2, '0')}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Coins display - positioned lower on screen
+                  Positioned(
+                    top: 80, // Moved down from the top
+                    left: 10,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.monetization_on,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            '$_coinsEarned',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-          Expanded(
-            child: Stack(
-              children: [
-                WebViewWidget(controller: _controller),
-                if (!_isTimerActive && !_isShowingAd)
-                  GestureDetector(
-                    onTap: _startWatchTimer,
-                    child: Container(
-                      color: Colors.black.withOpacity(0.7),
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.play_circle_filled, size: 80, color: Colors.white),
-                            SizedBox(height: 20),
-                            Text(
-                              'Tap to start earning',
-                              style: TextStyle(color: Colors.white, fontSize: 20),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: _isTimerActive
-          ? FloatingActionButton(
-        onPressed: _pauseWatchTimer,
-        backgroundColor: Colors.red,
-        child: Icon(Icons.pause),
-      )
-          : FloatingActionButton(
-        onPressed: _startWatchTimer,
-        backgroundColor: Colors.red,
-        child: Icon(Icons.play_arrow),
+          ],
+        ),
       ),
     );
   }
