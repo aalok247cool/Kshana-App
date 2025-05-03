@@ -10,7 +10,7 @@ import 'pages/facebook_zone_page.dart';
 import 'pages/others_zone_page.dart';
 import 'pages/online_shopping_page.dart';
 import 'pages/order_food_page.dart';
-import 'pages/tickets_page.dart';
+import 'pages/showtime_page.dart';
 import 'pages/call_message_page.dart';
 import 'pages/game_zone_page.dart';
 import 'pages/earnings_zone_page.dart';
@@ -271,7 +271,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
 
       case 'YouTube Zone':  // If a specific sub-zone for YouTube
-        page = const YouTubeZonePage();
+        page = YouTubeZonePage();
         break;
 
       case 'Instagram Zone':  // If a specific sub-zone for Instagram
@@ -279,7 +279,7 @@ class _DashboardPageState extends State<DashboardPage> {
         break;
 
       case 'Facebook Zone':  // If a specific sub-zone for Facebook
-        page = const FacebookZonePage();
+        page =  FacebookZonePage();
         break;
 
       case 'Others Zone':
@@ -291,23 +291,53 @@ class _DashboardPageState extends State<DashboardPage> {
 
 
       case 'Game Zone':
-        page = const GameZonePage();  // Game Zone
+        page = GameZonePage(
+          currentCoins: _coinBalance,
+          onCoinsEarned: (earned) {
+            setState(() => _coinBalance += earned);
+            _saveCoins();
+          },
+        );
         break;
 
       case 'Online Shopping':
-        page = const OnlineShoppingPage();  // Online Shopping
+        page = OnlineShoppingPage(
+          currentCoins: _coinBalance,
+          onCoinsEarned: (earned) {
+            setState(() => _coinBalance += earned);
+            _saveCoins();
+          },
+        );
         break;
 
       case 'Order Food':
-        page = const OrderFoodPage();  // Order Food
+        page = OrderFoodPage(
+          currentCoins: _coinBalance,
+          onCoinsEarned: (earned) {
+            setState(() => _coinBalance += earned);
+            _saveCoins();
+          },
+        );
         break;
 
-      case 'All India Transport':
-        page = const TicketsPage();  // All India Transport
+      case 'Transport':
+        page = ShowtimePage(
+          currentCoins: _coinBalance,
+          onCoinsEarned: (earned) {
+            setState(() => _coinBalance += earned);
+            _saveCoins();
+          },
+        );
         break;
 
       case 'Call & Message':
-        page = const CallMessagePage();  // Call & Message
+        page = CallMessagePage(
+          currentCoins: _coinBalance,
+          onCoinsEarned: (earned) {
+            setState(() => _coinBalance += earned);
+            _saveCoins();
+          },
+        );
         break;
 
 
@@ -613,7 +643,13 @@ class _DashboardPageState extends State<DashboardPage> {
                       _buildZoneCard('Earnings', Icons.monetization_on, EarningsZonePage()),
                       _buildZoneCard('Others Zone', Icons.apps),
                       _buildZoneCard('Money Tools', Icons.account_balance, MoneyToolsZonePage()),
-                      _buildZoneCard('Lifestyle', Icons.style, LifestyleZonePage()),
+                      _buildZoneCard('Lifestyle', Icons.style, LifestyleZonePage(
+                        currentCoins: _coinBalance,
+                        onCoinsEarned: (earned) {
+                          setState(() => _coinBalance += earned);
+                          _saveCoins();
+                        },
+                      )),
                     ],
                   ),
                 ],

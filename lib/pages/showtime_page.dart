@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 
-class GameZonePage extends StatefulWidget {
+class ShowtimePage extends StatefulWidget {
   final int currentCoins;
   final Function(int) onCoinsEarned;
 
-  const GameZonePage({
+  const ShowtimePage({
     Key? key,
     required this.currentCoins,
     required this.onCoinsEarned,
   }) : super(key: key);
 
   @override
-  _GameZonePageState createState() => _GameZonePageState();
+  _ShowtimePageState createState() => _ShowtimePageState();
 }
 
-class _GameZonePageState extends State<GameZonePage> {
+class _ShowtimePageState extends State<ShowtimePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Game Zone'),
+        title: Text('Showtime'),
         actions: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -37,10 +37,10 @@ class _GameZonePageState extends State<GameZonePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.videogame_asset, size: 80, color: Colors.purple),
+            Icon(Icons.movie, size: 80, color: Colors.red),
             SizedBox(height: 20),
             Text(
-              'Game Zone Feature',
+              'Tickets Feature',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 10),
@@ -52,9 +52,9 @@ class _GameZonePageState extends State<GameZonePage> {
             ElevatedButton(
               onPressed: () {
                 // Example of how to use the onCoinsEarned callback
-                widget.onCoinsEarned(20);
+                widget.onCoinsEarned(15);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('You earned 20 coins!')),
+                  SnackBar(content: Text('You earned 15 coins!')),
                 );
               },
               child: Text('Test Earning Coins'),

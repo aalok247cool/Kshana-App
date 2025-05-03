@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.INTERNET" /> <!-- Add this for WebView -->
 
     <application
         android:label="kshana_app"
@@ -28,9 +29,22 @@
     </application>
 
     <queries>
+        <!-- Keep your existing query -->
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />
+        </intent>
+
+        <!-- Add Instagram support -->
+        <package android:name="com.instagram.android" />
+        <!-- Add YouTube support -->
+        <package android:name="com.google.android.youtube" />
+        <!-- Add Facebook support -->
+        <package android:name="com.facebook.katana" />
+        <!-- Add browser support for fallback -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
         </intent>
     </queries>
 </manifest>

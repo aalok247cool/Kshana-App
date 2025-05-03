@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'game_zone_page.dart'; // Import for Game Zone Page
-import 'kshana_exports_page.dart';
+
 
 
 class OthersZonePage extends StatelessWidget {
@@ -31,19 +30,7 @@ class OthersZonePage extends StatelessWidget {
           mainAxisSpacing: 16,
           children: [
 
-            _buildZoneCard(
-              context,
-              'Game Zone',
-              Icons.games,
-              const GameZonePage(),
-            ),
 
-            _buildZoneCard(
-              context,
-              'Kshana Exports',
-              Icons.business_center,
-              const KshanaExportsPage(),
-            ),
           ],
         ),
       ),
