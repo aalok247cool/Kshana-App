@@ -4,6 +4,8 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'dart:async';
 
 class YouTubeZonePage extends StatefulWidget {
+  const YouTubeZonePage({super.key});
+
   @override
   _YouTubeZonePageState createState() => _YouTubeZonePageState();
 }
@@ -11,7 +13,7 @@ class YouTubeZonePage extends StatefulWidget {
 class _YouTubeZonePageState extends State<YouTubeZonePage> {
   bool _isWebViewVisible = false;
   InAppWebViewController? _webViewController;
-  int _coinBalance = 425;
+  final int _coinBalance = 425;
 
   // Ad timer variables
   Timer? _adTimer;

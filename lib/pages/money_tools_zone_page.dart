@@ -4,9 +4,21 @@ import 'kshana_bank_page.dart';
 import 'kshana_secure_page.dart';
 import 'kshana_remit_page.dart';
 
-class MoneyToolsZonePage extends StatelessWidget {
-  const MoneyToolsZonePage({super.key});
+class MoneyToolsZonePage extends StatefulWidget {
+  final int currentCoins;
+  final Function(int) onCoinsEarned;
 
+  const MoneyToolsZonePage({
+    super.key,
+    required this.currentCoins,
+    required this.onCoinsEarned,
+  });
+
+  @override
+  _MoneyToolsZonePageState createState() => _MoneyToolsZonePageState();
+}
+
+class _MoneyToolsZonePageState extends State<MoneyToolsZonePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -19,7 +31,10 @@ class MoneyToolsZonePage extends StatelessWidget {
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
         children: [
-          _buildFeatureCard(context, 'Kshana Pay', Icons.qr_code_scanner, const KshanaPayPage()),
+          _buildFeatureCard(context, 'Kshana Pay', Icons.qr_code_scanner, KshanaPayPage(
+            currentCoins: widget.currentCoins,
+            onCoinsEarned: widget.onCoinsEarned,
+          )),
           _buildFeatureCard(context, 'Kshana Bank', Icons.account_balance_wallet, KshanaBankPage()),
           _buildFeatureCard(context, 'Kshana Secure', Icons.lock, KshanaSecurePage()),
           _buildFeatureCard(context, 'Kshana Remit', Icons.send_to_mobile, const KshanaRemitPage()),

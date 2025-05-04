@@ -5,7 +5,7 @@ class TaskZonePage extends StatefulWidget {
   final Function? onTaskCompleted;
 
   // Constructor with the parameter
-  TaskZonePage({this.onTaskCompleted});
+  const TaskZonePage({super.key, this.onTaskCompleted});
 
   @override
   _TaskZonePageState createState() => _TaskZonePageState();
@@ -13,7 +13,7 @@ class TaskZonePage extends StatefulWidget {
 
 class _TaskZonePageState extends State<TaskZonePage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  int _coinBalance = 425;
+  final int _coinBalance = 425;
 
   @override
   void initState() {
@@ -320,10 +320,10 @@ class _TaskZonePageState extends State<TaskZonePage> with SingleTickerProviderSt
                       // Add task start functionality here
                       _showTaskStartDialog(title, reward);
                     },
-                    child: Text('Start Task'),
                     style: ElevatedButton.styleFrom(
                       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     ),
+                    child: Text('Start Task'),
                   ),
                 ],
               ),

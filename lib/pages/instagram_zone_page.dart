@@ -4,6 +4,8 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'dart:async';
 
 class InstagramZonePage extends StatefulWidget {
+  const InstagramZonePage({super.key});
+
   @override
   _InstagramZonePageState createState() => _InstagramZonePageState();
 }
@@ -11,7 +13,7 @@ class InstagramZonePage extends StatefulWidget {
 class _InstagramZonePageState extends State<InstagramZonePage> {
   bool _isWebViewVisible = false;
   InAppWebViewController? _webViewController;
-  int _coinBalance = 425;
+  final int _coinBalance = 425;
 
   // Ad timer variables
   Timer? _adTimer;

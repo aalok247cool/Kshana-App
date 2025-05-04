@@ -7,10 +7,10 @@ class OrderFoodPage extends StatefulWidget {
   final Function(int) onCoinsEarned;
 
   const OrderFoodPage({
-    Key? key,
+    super.key,
     required this.currentCoins,
     required this.onCoinsEarned,
-  }) : super(key: key);
+  });
 
   @override
   _OrderFoodPageState createState() => _OrderFoodPageState();
@@ -308,7 +308,7 @@ class _OrderFoodPageState extends State<OrderFoodPage> {
               ),
               SizedBox(height: 12),
 
-              ..._partners.map((partner) => _buildPartnerCard(partner)).toList(),
+              ..._partners.map((partner) => _buildPartnerCard(partner)),
 
               SizedBox(height: 24),
 
@@ -323,7 +323,7 @@ class _OrderFoodPageState extends State<OrderFoodPage> {
                 ),
                 SizedBox(height: 12),
 
-                ..._recentOrders.take(5).map((order) => _buildOrderCard(order)).toList(),
+                ..._recentOrders.take(5).map((order) => _buildOrderCard(order)),
               ],
             ],
           ),
@@ -602,7 +602,7 @@ class _OrderFoodPageState extends State<OrderFoodPage> {
                     ),
                   ),
                   Text(
-                    '${_formatDate(order.date)}',
+                    _formatDate(order.date),
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.grey[500],

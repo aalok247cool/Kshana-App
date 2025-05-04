@@ -9,7 +9,7 @@ class SurpriseZonePage extends StatefulWidget {
   final Function(int) onCoinsEarned;
 
   // Constructor with required parameters
-  SurpriseZonePage({
+  const SurpriseZonePage({super.key, 
     required this.currentCoins,
     required this.onCoinsEarned,
   });
@@ -420,7 +420,7 @@ class _SurpriseZonePageState extends State<SurpriseZonePage> with SingleTickerPr
 
             // Wheel of fortune
             Center(
-              child: Container(
+              child: SizedBox(
                 height: 300,
                 width: 300,
                 child: Stack(

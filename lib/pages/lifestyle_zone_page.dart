@@ -11,10 +11,10 @@ class LifestyleZonePage extends StatefulWidget {
   final Function(int) onCoinsEarned;
 
   const LifestyleZonePage({
-    Key? key,
+    super.key,
     required this.currentCoins,
     required this.onCoinsEarned,
-  }) : super(key: key);
+  });
 
   @override
   _LifestyleZonePageState createState() => _LifestyleZonePageState();

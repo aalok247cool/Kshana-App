@@ -5,10 +5,10 @@ class ShowtimePage extends StatefulWidget {
   final Function(int) onCoinsEarned;
 
   const ShowtimePage({
-    Key? key,
+    super.key,
     required this.currentCoins,
     required this.onCoinsEarned,
-  }) : super(key: key);
+  });
 
   @override
   _ShowtimePageState createState() => _ShowtimePageState();
@@ -57,10 +57,10 @@ class _ShowtimePageState extends State<ShowtimePage> {
                   SnackBar(content: Text('You earned 15 coins!')),
                 );
               },
-              child: Text('Test Earning Coins'),
               style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               ),
+              child: Text('Test Earning Coins'),
             ),
           ],
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'pages/task_zone_page.dart';
 import 'pages/surprise_zone.dart';
@@ -21,6 +22,8 @@ import 'dart:io';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'pages/login_page.dart';
 import 'dart:async';
+import 'pages/kyc_page.dart';
+import 'package:quick_actions/quick_actions.dart';
 
 
 
@@ -98,13 +101,131 @@ class DashboardPage extends StatefulWidget {
 
 
 
+void _setupQuickActions() {
+  final QuickActions quickActions = const QuickActions();
+
+  // Set up shortcuts
+  quickActions.setShortcutItems(<ShortcutItem>[
+    const ShortcutItem(
+      type: 'action_kshana_pay',
+      localizedTitle: 'Kshana Pay',
+      icon: 'icon_pay',
+    ),
+    const ShortcutItem(
+      type: 'action_daily_reward',
+      localizedTitle: 'Daily Reward',
+      icon: 'icon_reward',
+    ),
+  ]);
+
+  // Just print a message when shortcuts are used - no navigation yet
+  quickActions.initialize((shortcutType) {
+    print('App launched from shortcut: $shortcutType');
+    // Shortcut functionality will be implemented in a future update
+  });
+}
+
+
+
 class _DashboardPageState extends State<DashboardPage> {
   int _coinBalance = 0;
   bool _isRewardClaimed = false;
   int currentCoins = 1000;
   String _userName = "User123";
   File? _profileImage;
-  final String _trustScore = 'Green';
+  final String _trustScore = 'Red';
+
+  // Add this at the top of your _DashboardPageState class
+  static const MethodChannel _shortcutChannel = MethodChannel('com.kshana.app/shortcuts');
+
+  Future<bool> _createShortcut(String shortcutId, String shortcutName, String iconResourceName, String deepLink) async {
+    try {
+      final bool result = await _shortcutChannel.invokeMethod('createShortcut', {
+        'shortcutId': shortcutId,
+        'shortcutName': shortcutName,
+        'iconResourceName': iconResourceName,
+        'deepLink': deepLink,
+      });
+      return result;
+    } catch (e) {
+      print('Error creating shortcut: $e');
+      return false;
+    }
+  }
+  void _showCreateShortcutDialog(String title, String featureKey, String deepLink) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey.shade900,
+        title: Text(
+          'Create Shortcut',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          'Do you want to add "$title" to your home screen?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+
+              final iconName = _getIconResourceName(featureKey);
+              final success = await _createShortcut(
+                  featureKey,
+                  title,
+                  iconName,
+                  deepLink
+              );
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    success
+                        ? '$title shortcut created on home screen!'
+                        : 'Could not create shortcut. Please try again.',
+                  ),
+                  backgroundColor: success ? Colors.green : Colors.red,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber,
+            ),
+            child: Text(
+              'Create',
+              style: TextStyle(color: Colors.black),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getIconResourceName(String featureKey) {
+    // Map feature keys to drawable resource names
+    switch (featureKey) {
+      case 'kshana_pay':
+        return 'kshana_pay_icon';
+      case 'daily_reward':
+        return 'daily_reward_icon';
+      case 'earnings':
+        return 'earnings_icon';
+      case 'kyc':
+        return 'kyc_icon';
+      default:
+        return 'app_icon';
+    }
+  }
 
   // Add locale dropdown variables
   final Locale _selectedLocale = const Locale('en', 'US');
@@ -113,16 +234,17 @@ class _DashboardPageState extends State<DashboardPage> {
     'Hindi': Locale('hi', 'IN'),
     'Kannada': Locale('kn', 'IN'),
   };
-  String getTrustScoreMessage() {
-
-    switch (_trustScore) {
+  // Function to convert your existing trust score to KycStatus
+  KycStatus _getKycStatusFromTrustScore(String trustScore) {
+    switch (trustScore) {
       case 'Red':
-        return 'Your verification is incomplete.';
+        return KycStatus.notVerified;
       case 'Yellow':
-        return 'Your verification is partially complete.';
+        return KycStatus.partiallyVerified;
       case 'Green':
+        return KycStatus.fullyVerified;
       default:
-        return 'Your verification is complete.';
+        return KycStatus.notVerified;
     }
   }
   Future<void> _openProfile() async {
@@ -182,6 +304,20 @@ class _DashboardPageState extends State<DashboardPage> {
         return Colors.green;
     }
   }
+// ADD THE FUNCTION RIGHT HERE:
+  String getTrustScoreMessage() {
+    switch (_trustScore) {
+      case 'Red':
+        return 'Your verification is incomplete.';
+      case 'Yellow':
+        return 'Your verification is partially complete.';
+      case 'Green':
+      default:
+        return 'Your verification is complete.';
+    }
+  }
+// END OF ADDED FUNCTION
+
 
   void _setupSharedPrefsListener() {
     // Check for changes every 2 seconds
@@ -205,6 +341,8 @@ class _DashboardPageState extends State<DashboardPage> {
     print("CALLING LOAD USER DATA FROM INIT STATE");
     _loadUserData();
     _setupSharedPrefsListener();
+    _setupQuickActions();
+
   }
 
   void refreshUserData() {
@@ -559,23 +697,30 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                   const SizedBox(height: 10),
 
-                  // 🔸 Keep all other existing widgets...
-                  // KYC Notice, Spend Coins Card, Daily Reward Card, etc.
-                  // 🔸 KYC Notice
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade900,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      '🔒 KYC required before redemption.\nPlease verify your identity.',
-                      style: TextStyle(color: Colors.white, fontSize: 13),
-                      textAlign: TextAlign.center,
+                  // Replace your current KYC Notice with this:
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const KycPage()),
+                      );
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade900,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        '🔒 KYC required before redemption.\nPlease verify your identity.',
+                        style: TextStyle(color: Colors.white, fontSize: 13),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
+
 
                   // 🔸 Spend Coins Card
                   Card(
@@ -642,8 +787,16 @@ class _DashboardPageState extends State<DashboardPage> {
                     children: [
                       _buildZoneCard('Earnings', Icons.monetization_on, EarningsZonePage()),
                       _buildZoneCard('Others Zone', Icons.apps),
-                      _buildZoneCard('Money Tools', Icons.account_balance, MoneyToolsZonePage()),
+
+                      _buildZoneCard('Money Tools', Icons.account_balance, MoneyToolsZonePage(
+                        currentCoins: _coinBalance,
+                        onCoinsEarned: (earned) {
+                          setState(() => _coinBalance += earned);
+                          _saveCoins();
+                        },
+                      )),
                       _buildZoneCard('Lifestyle', Icons.style, LifestyleZonePage(
+
                         currentCoins: _coinBalance,
                         onCoinsEarned: (earned) {
                           setState(() => _coinBalance += earned);
@@ -669,6 +822,14 @@ class _DashboardPageState extends State<DashboardPage> {
           borderRadius: BorderRadius.circular(16)),
       shadowColor: Colors.amberAccent,
       child: InkWell(
+        onLongPress: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$title shortcut has been added to your home screen!'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        },
         onTap: () async {  // Add async keyword here
           if (page != null) {
             // If a page is provided, navigate to it
@@ -678,7 +839,6 @@ class _DashboardPageState extends State<DashboardPage> {
             );
 
             // After returning from any page, refresh user data
-            // This will only have an effect if the username was changed
             _loadUserData();
           } else {
             // Otherwise, handle it normally

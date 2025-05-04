@@ -6,7 +6,7 @@ class OnlineShoppingPage extends StatefulWidget {
   final int currentCoins;
   final Function(int) onCoinsEarned;
 
-  OnlineShoppingPage({
+  const OnlineShoppingPage({super.key, 
     required this.currentCoins,
     required this.onCoinsEarned,
   });
@@ -312,7 +312,7 @@ class _OnlineShoppingPageState extends State<OnlineShoppingPage> {
               ),
               SizedBox(height: 12),
 
-              ..._partners.map((partner) => _buildPartnerCard(partner)).toList(),
+              ..._partners.map((partner) => _buildPartnerCard(partner)),
 
               SizedBox(height: 24),
 
@@ -327,7 +327,7 @@ class _OnlineShoppingPageState extends State<OnlineShoppingPage> {
                 ),
                 SizedBox(height: 12),
 
-                ..._recentPurchases.take(5).map((purchase) => _buildPurchaseCard(purchase)).toList(),
+                ..._recentPurchases.take(5).map((purchase) => _buildPurchaseCard(purchase)),
               ],
             ],
           ),
@@ -530,7 +530,7 @@ class _OnlineShoppingPageState extends State<OnlineShoppingPage> {
                     ),
                   ),
                   Text(
-                    '${_formatDate(purchase.date)}',
+                    _formatDate(purchase.date),
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.grey[500],

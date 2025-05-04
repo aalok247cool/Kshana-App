@@ -5,10 +5,10 @@ class GameZonePage extends StatefulWidget {
   final Function(int) onCoinsEarned;
 
   const GameZonePage({
-    Key? key,
+    super.key,
     required this.currentCoins,
     required this.onCoinsEarned,
-  }) : super(key: key);
+  });
 
   @override
   _GameZonePageState createState() => _GameZonePageState();
@@ -57,10 +57,10 @@ class _GameZonePageState extends State<GameZonePage> {
                   SnackBar(content: Text('You earned 20 coins!')),
                 );
               },
-              child: Text('Test Earning Coins'),
               style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               ),
+              child: Text('Test Earning Coins'),
             ),
           ],
         ),

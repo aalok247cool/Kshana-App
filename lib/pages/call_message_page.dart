@@ -7,10 +7,10 @@ class CallMessagePage extends StatefulWidget {
   final Function(int) onCoinsEarned;
 
   const CallMessagePage({
-    Key? key,
+    super.key,
     required this.currentCoins,
     required this.onCoinsEarned,
-  }) : super(key: key);
+  });
 
   @override
   _CallMessagePageState createState() => _CallMessagePageState();
@@ -23,10 +23,10 @@ class _CallMessagePageState extends State<CallMessagePage> with SingleTickerProv
   // Tracking communication stats
   int _callMinutes = 0;
   int _messagesSent = 0;
-  int _callRewardThreshold = 20; // Minutes to earn reward
-  int _messageRewardThreshold = 50; // Messages to earn reward
-  int _callRewardAmount = 5; // Coins earned per 20 min of calls
-  int _messageRewardAmount = 5; // Coins earned per 50 messages
+  final int _callRewardThreshold = 20; // Minutes to earn reward
+  final int _messageRewardThreshold = 50; // Messages to earn reward
+  final int _callRewardAmount = 5; // Coins earned per 20 min of calls
+  final int _messageRewardAmount = 5; // Coins earned per 50 messages
 
   // Mock data for contacts and chats
   final List<KshanaContact> _contacts = [
@@ -591,7 +591,7 @@ class _CallMessagePageState extends State<CallMessagePage> with SingleTickerProv
         title: Text(isForCall
             ? isVideo ? 'Select Contact for Video Call' : 'Select Contact for Call'
             : 'Select Contact for Chat'),
-        content: Container(
+        content: SizedBox(
           width: double.maxFinite,
           child: ListView.builder(
             shrinkWrap: true,
@@ -673,10 +673,10 @@ class ChatScreen extends StatefulWidget {
   final Function onMessageSent;
 
   const ChatScreen({
-    Key? key,
+    super.key,
     required this.contact,
     required this.onMessageSent,
-  }) : super(key: key);
+  });
 
   @override
   _ChatScreenState createState() => _ChatScreenState();

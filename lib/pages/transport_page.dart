@@ -8,10 +8,10 @@ class TransportPage extends StatefulWidget {
   final Function(int) onCoinsEarned;
 
   const TransportPage({
-    Key? key,
+    super.key,
     required this.currentCoins,
     required this.onCoinsEarned,
-  }) : super(key: key);
+  });
 
   @override
   _TransportPageState createState() => _TransportPageState();
@@ -494,7 +494,7 @@ class _TransportPageState extends State<TransportPage> with SingleTickerProvider
                     ],
                   ),
                   SizedBox(height: 8),
-                  Container(
+                  SizedBox(
                     height: 150,
                     child: ListView(
                       scrollDirection: Axis.horizontal,
@@ -533,10 +533,10 @@ class _TransportPageState extends State<TransportPage> with SingleTickerProvider
             onPressed: () {
               // Search functionality would be implemented here
             },
-            child: Text('Search'),
             style: ElevatedButton.styleFrom(
               padding: EdgeInsets.symmetric(vertical: 15),
             ),
+            child: Text('Search'),
           ),
         ],
       ),
@@ -556,7 +556,7 @@ class _TransportPageState extends State<TransportPage> with SingleTickerProvider
             SizedBox(height: 16),
 
             // Partners list
-            ...partners.map((partner) => _buildPartnerCard(partner)).toList(),
+            ...partners.map((partner) => _buildPartnerCard(partner)),
           ],
         ),
       ),
