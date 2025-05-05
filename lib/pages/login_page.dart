@@ -43,12 +43,19 @@ class _LoginPageState extends State<LoginPage> {
     final prefs = await SharedPreferences.getInstance();
     final userEmail = prefs.getString('userEmail');
     final hasPassword = prefs.getString('userPassword') != null;
+    final rememberedUser = prefs.getBool('rememberMe') ?? false;
 
     if (userEmail != null && hasPassword) {
       setState(() {
         _isNewUser = false;
         _emailController.text = userEmail;
         _isBiometricEnabled = prefs.getBool('isBiometricEnabled') ?? false;
+
+        // Load remembered credentials
+        _rememberMe = rememberedUser;
+        if (rememberedUser) {
+          _passwordController.text = prefs.getString('userPassword') ?? '';
+        }
       });
     }
 
@@ -115,6 +122,9 @@ class _LoginPageState extends State<LoginPage> {
       await prefs.setString('userPassword', _passwordController.text); // In a real app, hash this!
       await prefs.setString('userName', _emailController.text.split('@')[0]); // Default name from email
 
+      // Save remember me state for new users too
+      await prefs.setBool('rememberMe', _rememberMe);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Account created successfully!')),
       );
@@ -125,9 +135,8 @@ class _LoginPageState extends State<LoginPage> {
       final storedPassword = prefs.getString('userPassword');
 
       if (_passwordController.text == storedPassword) {
-        if (_rememberMe) {
-          await prefs.setBool('rememberMe', true);
-        }
+        // Save or clear remember me preference
+        await prefs.setBool('rememberMe', _rememberMe);
 
         _loginSuccess();
       } else {
@@ -158,7 +167,7 @@ class _LoginPageState extends State<LoginPage> {
           ? Center(child: CircularProgressIndicator(color: Colors.amber))
           : SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
           child: Center(
             child: SingleChildScrollView(
               child: Column(
@@ -280,9 +289,9 @@ class _LoginPageState extends State<LoginPage> {
                               _rememberMe = value ?? false;
                             });
                           },
-                          fillColor: WidgetStateProperty.resolveWith<Color>(
-                                (Set<WidgetState> states) {
-                              if (states.contains(WidgetState.selected)) {
+                          fillColor: MaterialStateProperty.resolveWith<Color>(
+                                (Set<MaterialState> states) {
+                              if (states.contains(MaterialState.selected)) {
                                 return Colors.amber;
                               }
                               return Colors.amber.withOpacity(0.5);

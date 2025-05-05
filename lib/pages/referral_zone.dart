@@ -58,7 +58,10 @@ class _ReferralZonePageState extends State<ReferralZonePage> {
     Clipboard.setData(ClipboardData(text: referralLink));
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Referral link copied!')));
+    ).showSnackBar(const SnackBar(
+      content: Text('Referral link copied!'),
+      backgroundColor: Colors.amber,
+    ));
     saveActivationDate();
   }
 
@@ -84,7 +87,10 @@ class _ReferralZonePageState extends State<ReferralZonePage> {
     } else {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Could not open WhatsApp')));
+      ).showSnackBar(const SnackBar(
+        content: Text('Could not open WhatsApp'),
+        backgroundColor: Colors.red,
+      ));
     }
   }
 
@@ -98,9 +104,17 @@ class _ReferralZonePageState extends State<ReferralZonePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Referral Zone'),
+        title: const Text(
+          'Referral Zone',
+          style: TextStyle(
+            color: Colors.amber,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.amber),
       ),
+      backgroundColor: Colors.black,
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -108,7 +122,11 @@ class _ReferralZonePageState extends State<ReferralZonePage> {
           children: [
             const Text(
               'Your Referral Code:',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(height: 10),
             SelectableText(
@@ -131,32 +149,41 @@ class _ReferralZonePageState extends State<ReferralZonePage> {
                   horizontal: 30,
                   vertical: 12,
                 ),
+                elevation: 5,
               ),
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: () => _launchShareIntent(context),
-              icon: Icon(FontAwesomeIcons.whatsapp, color: Colors.white),
+              icon: const Icon(FontAwesomeIcons.whatsapp),
               label: const Text('Share via WhatsApp'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: Color(0xFF25D366), // WhatsApp green
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 30,
                   vertical: 12,
                 ),
+                elevation: 5,
               ),
             ),
             const SizedBox(height: 30),
             const Text(
               'Invite your friends to Kshana and earn 100 coins\nwhen they join using your code!',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16),
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.white70,
+              ),
             ),
             const SizedBox(height: 30),
             const Text(
               "Referral Bonus Status (3 Days):",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: Colors.amber,
+              ),
             ),
             const SizedBox(height: 10),
             Row(
@@ -164,7 +191,12 @@ class _ReferralZonePageState extends State<ReferralZonePage> {
               children: List.generate(3, (index) {
                 return Column(
                   children: [
-                    Text("Day ${index + 1}"),
+                    Text(
+                      "Day ${index + 1}",
+                      style: const TextStyle(
+                        color: Colors.white,
+                      ),
+                    ),
                     Text(
                       referralProgress[index],
                       style: const TextStyle(fontSize: 28),

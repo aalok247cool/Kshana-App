@@ -4,12 +4,13 @@ import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SurpriseZonePage extends StatefulWidget {
-  // Add these parameters to match what main.dart expects
+  // Parameters required for coin management
   final int currentCoins;
   final Function(int) onCoinsEarned;
 
   // Constructor with required parameters
-  const SurpriseZonePage({super.key, 
+  const SurpriseZonePage({
+    super.key,
     required this.currentCoins,
     required this.onCoinsEarned,
   });
@@ -18,58 +19,28 @@ class SurpriseZonePage extends StatefulWidget {
   _SurpriseZonePageState createState() => _SurpriseZonePageState();
 }
 
-class _SurpriseZonePageState extends State<SurpriseZonePage> with SingleTickerProviderStateMixin {
-  late int _coinBalance;
-  bool _hasDailyFreeSpin = true;
-  bool _isWheelSpinning = false;
-  final int _spinCost = 100;
-  double _spinAngle = 0.0;
-  final List<String> _prizes = ['10 Coins', '20 Coins', '50 Coins', '100 Coins', '500 Coins', 'Better Luck', '200 Coins', 'Better Luck'];
-  String _lastPrize = '';
-  late AnimationController _animationController;
-
+class _SurpriseZonePageState extends State<SurpriseZonePage> {
   // For lucky draw
   bool _hasEnteredLuckyDraw = false;
-  final int _luckyDrawEntryCost = 50; // 50 coins or Rs 1
+  final int _luckyDrawEntryCost = 100; // Changed from 50 to 100 coins
   int _luckyDrawEntries = 0;
   final DateTime _drawDate = DateTime(2025, 5, 31); // Example - end of month
 
   @override
   void initState() {
     super.initState();
-    _coinBalance = widget.currentCoins; // Initialize with the current coins from main
-    _checkDailyFreeSpin();
+    print("SURPRISE ZONE: Initializing with coins from main: ${widget.currentCoins}");
     _checkLuckyDrawEntry();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: Duration(seconds: 5),
-    );
-
-    _animationController.addListener(() {
-      setState(() {});
-    });
-
-    _animationController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _handleSpinResult();
-      }
-    });
   }
 
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
+  // Helper method to update coins in the parent
+  void _updateCoins(int amount) {
+    print("SURPRISE ZONE: Updating coins by $amount. Main dashboard coins: ${widget.currentCoins}");
 
-  Future<void> _checkDailyFreeSpin() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String lastSpinDate = prefs.getString('lastSpinDate') ?? '';
-    final String today = DateTime.now().toString().split(' ')[0];
+    // Notify main.dart about the coin change
+    widget.onCoinsEarned(amount);
 
-    setState(() {
-      _hasDailyFreeSpin = lastSpinDate != today;
-    });
+    print("SURPRISE ZONE: Coin update sent to main dashboard");
   }
 
   Future<void> _checkLuckyDrawEntry() async {
@@ -81,20 +52,16 @@ class _SurpriseZonePageState extends State<SurpriseZonePage> with SingleTickerPr
       _hasEnteredLuckyDraw = entryDate == today;
       _luckyDrawEntries = prefs.getInt('luckyDrawEntries') ?? 0;
     });
-  }
 
-  Future<void> _markFreeSpin() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String today = DateTime.now().toString().split(' ')[0];
-    await prefs.setString('lastSpinDate', today);
-
-    setState(() {
-      _hasDailyFreeSpin = false;
-    });
+    print("SURPRISE ZONE: Has entered lucky draw today: $_hasEnteredLuckyDraw");
+    print("SURPRISE ZONE: Lucky draw entries: $_luckyDrawEntries");
   }
 
   Future<void> _enterLuckyDraw() async {
-    if (_coinBalance < _luckyDrawEntryCost) {
+    print("SURPRISE ZONE: Attempting to enter lucky draw");
+    print("SURPRISE ZONE: Main dashboard coins: ${widget.currentCoins}, Entry cost: $_luckyDrawEntryCost");
+
+    if (widget.currentCoins < _luckyDrawEntryCost) {
       _showInsufficientCoinsDialog();
       return;
     }
@@ -102,119 +69,61 @@ class _SurpriseZonePageState extends State<SurpriseZonePage> with SingleTickerPr
     final prefs = await SharedPreferences.getInstance();
     final String today = DateTime.now().toString().split(' ')[0];
 
-    // Update coin balance - use the callback to inform main.dart
+    // Update coin balance using the centralized method
+    _updateCoins(-_luckyDrawEntryCost);
+
     setState(() {
-      _coinBalance -= _luckyDrawEntryCost;
       _hasEnteredLuckyDraw = true;
       _luckyDrawEntries++;
     });
 
-    // Use negative value to reduce coins in the main app
-    widget.onCoinsEarned(-_luckyDrawEntryCost);
-
-    // Save state
+    // Save entry state
     await prefs.setString('luckyDrawEntryDate', today);
     await prefs.setInt('luckyDrawEntries', _luckyDrawEntries);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('You have entered the monthly lucky draw!')),
-    );
-  }
-
-  void _spinWheel() {
-    if (_isWheelSpinning) return;
-
-    if (!_hasDailyFreeSpin && _coinBalance < _spinCost) {
-      _showInsufficientCoinsDialog();
-      return;
-    }
-
-    setState(() {
-      _isWheelSpinning = true;
-      if (!_hasDailyFreeSpin) {
-        _coinBalance -= _spinCost;
-        // Notify main.dart about the spent coins
-        widget.onCoinsEarned(-_spinCost);
-      }
-    });
-
-    // Calculate random spin angle (2 to 10 full rotations plus random position)
-    final random = math.Random();
-    final double spins = 2 + random.nextDouble() * 8; // Between 2-10 spins
-    final double angle = spins * 2 * math.pi + (random.nextDouble() * 2 * math.pi);
-
-    // Use animation controller for smooth spinning
-    _animationController.reset();
-    _animationController.animateTo(1.0, curve: Curves.easeOutExpo);
-
-    // Animate to final angle
-    _spinAngle = angle;
-
-    // Mark free spin as used if applicable
-    if (_hasDailyFreeSpin) {
-      _markFreeSpin();
-    }
-  }
-
-  void _handleSpinResult() {
-    // Calculate which prize was won based on the final angle
-    final int segmentCount = _prizes.length;
-    final double segmentAngle = 2 * math.pi / segmentCount;
-
-    // Normalize the angle to 0-2π
-    final double normalizedAngle = _spinAngle % (2 * math.pi);
-
-    // Calculate the winning segment index
-    final int segmentIndex = (normalizedAngle / segmentAngle).floor();
-    final String prize = _prizes[segmentIndex % segmentCount];
-
-    setState(() {
-      _lastPrize = prize;
-      _isWheelSpinning = false;
-
-      // Award coins if applicable
-      if (prize.contains('Coins')) {
-        final int coins = int.parse(prize.split(' ')[0]);
-        _coinBalance += coins;
-
-        // Notify main.dart about the earned coins
-        widget.onCoinsEarned(coins);
-      }
-    });
-
-    _showPrizeDialog(prize);
-  }
-
-  void _showPrizeDialog(String prize) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Congratulations!'),
-        content: Text('You won: $prize'),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: Text('Claim'),
-          ),
-        ],
+      SnackBar(
+        content: Text('You have entered the monthly lucky draw!'),
+        backgroundColor: Colors.amber.shade800,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10.0),
+        ),
       ),
     );
+
+    print("SURPRISE ZONE: Entered lucky draw. Entries now: $_luckyDrawEntries");
   }
 
   void _showInsufficientCoinsDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Insufficient Coins'),
-        content: Text('You don\'t have enough coins for this action.'),
+        backgroundColor: Colors.black,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: Colors.red, width: 2),
+        ),
+        title: Text(
+          'Insufficient Coins',
+          style: TextStyle(
+            color: Colors.red,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'You don\'t have enough coins for this action.',
+          style: TextStyle(color: Colors.white),
+        ),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
             },
-            child: Text('OK'),
+            child: Text(
+              'OK',
+              style: TextStyle(color: Colors.amber),
+            ),
           ),
         ],
       ),
@@ -229,36 +138,101 @@ class _SurpriseZonePageState extends State<SurpriseZonePage> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text('Surprise Zone'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
+        title: Text(
+          'Surprise Zone',
+          style: TextStyle(
+            color: Colors.amber,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Colors.black,
+        iconTheme: IconThemeData(color: Colors.amber),
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black,
+              Color(0xFF1A1A1A),
+            ],
+          ),
+        ),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(Icons.monetization_on, color: Colors.amber),
-                SizedBox(width: 4),
-                Text('$_coinBalance', style: TextStyle(fontWeight: FontWeight.bold)),
+                // Lucky Draw Section
+                _buildLuckyDrawSection(),
+
+                // Information Section about Surprise Zone
+                SizedBox(height: 24),
+                _buildInfoSection(),
               ],
             ),
           ),
-        ],
+        ),
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Lucky Draw Section
-              _buildLuckyDrawSection(),
+    );
+  }
 
-              SizedBox(height: 24),
-
-              // Spinning Wheel Section
-              _buildSpinningWheelSection(),
-            ],
-          ),
+  Widget _buildInfoSection() {
+    return Card(
+      elevation: 8,
+      color: Colors.black,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.amber.withOpacity(0.5), width: 2),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.amber),
+                SizedBox(width: 8),
+                Text(
+                  'About Surprise Zone',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.amber,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+            Text(
+              'The Surprise Zone is where you can participate in exciting events and win big rewards!',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Enter our monthly lucky draw for a chance to win real cash prizes. The more entries you have, the better your chances!',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 15,
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Keep an eye out for special events and limited-time offers that will appear in this zone.',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 15,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -266,114 +240,182 @@ class _SurpriseZonePageState extends State<SurpriseZonePage> with SingleTickerPr
 
   Widget _buildLuckyDrawSection() {
     return Card(
-      elevation: 4,
+      elevation: 8,
+      color: Colors.black,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.amber.withOpacity(0.5), width: 2),
       ),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Monthly Lucky Draw',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 16),
-
-            // Prize info
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    'Grand Prizes',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  _buildPrizeRow('1st Prize', '₹10,000'),
-                  _buildPrizeRow('2nd Prize', '₹5,000'),
-                  _buildPrizeRow('3rd Prize', '₹2,000'),
-                  _buildPrizeRow('4th-10th', '₹500 each'),
-                ],
-              ),
-            ),
-
-            SizedBox(height: 16),
-
-            // Draw info
-            Row(
-              children: [
-                Icon(Icons.event, color: Colors.purple),
-                SizedBox(width: 8),
-                Text(
-                  'Draw Date: ${_drawDate.day}/${_drawDate.month}/${_drawDate.year}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.hourglass_top, color: Colors.purple),
-                SizedBox(width: 8),
-                Text(
-                  'Days Left: ${_daysUntilDraw()}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.confirmation_number, color: Colors.purple),
-                SizedBox(width: 8),
-                Text(
-                  'Your Entries: $_luckyDrawEntries',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-
-            SizedBox(height: 16),
-
-            // Entry button
-            ElevatedButton(
-              onPressed: _hasEnteredLuckyDraw ? null : _enterLuckyDraw,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple,
-                padding: EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: Text(
-                _hasEnteredLuckyDraw
-                    ? 'Already Entered Today'
-                    : 'Enter Lucky Draw (₹1 or $_luckyDrawEntryCost coins)',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.amber.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 10,
+              offset: Offset(0, 0),
             ),
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.star, color: Colors.amber),
+                  SizedBox(width: 8),
+                  Text(
+                    'Monthly Lucky Draw',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.amber,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 16),
+
+
+              // Prize info
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.amber.withOpacity(0.1),
+                      Colors.amber.withOpacity(0.05),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Grand Prizes',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.amber,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    _buildPrizeRow('1st Prize', '₹10,000'),
+                    _buildPrizeRow('2nd Prize', '₹5,000'),
+                    _buildPrizeRow('3rd Prize', '₹2,000'),
+                    _buildPrizeRow('4th-10th', '₹500 each'),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: 16),
+
+              // Draw info
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.amber.withOpacity(0.2)),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.event, color: Colors.amber),
+                        SizedBox(width: 8),
+                        Text(
+                          'Draw Date: ${_drawDate.day}/${_drawDate.month}/${_drawDate.year}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(Icons.hourglass_top, color: Colors.amber),
+                        SizedBox(width: 8),
+                        Text(
+                          'Days Left: ${_daysUntilDraw()}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(Icons.confirmation_number, color: Colors.amber),
+                        SizedBox(width: 8),
+                        Text(
+                          'Your Entries: $_luckyDrawEntries',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(Icons.account_balance_wallet, color: Colors.amber),
+                        SizedBox(width: 8),
+                        Text(
+                          'Your Coins: ${widget.currentCoins}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: 16),
+
+
+
+              // Entry button
+              ElevatedButton(
+                onPressed: _hasEnteredLuckyDraw ? null : _enterLuckyDraw,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _hasEnteredLuckyDraw ? Colors.grey : Colors.amber,
+                  foregroundColor: Colors.black,
+                  disabledBackgroundColor: Colors.grey.shade700,
+                  disabledForegroundColor: Colors.grey.shade300,
+                  elevation: _hasEnteredLuckyDraw ? 0 : 8,
+                  shadowColor: Colors.amber.withOpacity(0.6),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(
+                  _hasEnteredLuckyDraw
+                      ? 'Already Entered Today'
+                      : 'Enter Lucky Draw (₹1 or $_luckyDrawEntryCost coins)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -381,218 +423,20 @@ class _SurpriseZonePageState extends State<SurpriseZonePage> with SingleTickerPr
 
   Widget _buildPrizeRow(String place, String amount) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(place),
+          Text(place, style: TextStyle(color: Colors.white70)),
           Text(
             amount,
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: Colors.green[700],
+              color: Colors.amber,
             ),
           ),
         ],
       ),
     );
   }
-
-  Widget _buildSpinningWheelSection() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Spin & Win',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 16),
-
-            // Wheel of fortune
-            Center(
-              child: SizedBox(
-                height: 300,
-                width: 300,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Spinning wheel
-                    Transform.rotate(
-                      angle: _spinAngle * _animationController.value,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.black,
-                            width: 2,
-                          ),
-                        ),
-                        child: CustomPaint(
-                          size: Size(280, 280),
-                          painter: WheelPainter(_prizes),
-                        ),
-                      ),
-                    ),
-
-                    // Center point
-                    Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white,
-                        border: Border.all(
-                          color: Colors.black,
-                          width: 2,
-                        ),
-                      ),
-                    ),
-
-                    // Pointer
-                    Positioned(
-                      top: 0,
-                      child: Container(
-                        width: 20,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(10),
-                            topRight: Radius.circular(10),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            SizedBox(height: 24),
-
-            // Spin button
-            Center(
-              child: ElevatedButton(
-                onPressed: _isWheelSpinning ? null : _spinWheel,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: Text(
-                  _hasDailyFreeSpin
-                      ? 'Free Spin (1/day)'
-                      : 'Spin ($_spinCost coins)',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ),
-
-            SizedBox(height: 16),
-
-            // Last result
-            if (_lastPrize.isNotEmpty)
-              Center(
-                child: Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Last spin: $_lastPrize',
-                    style: TextStyle(
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Custom painter for the wheel
-class WheelPainter extends CustomPainter {
-  final List<String> prizes;
-
-  WheelPainter(this.prizes);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()
-      ..style = PaintingStyle.fill;
-
-    final double centerX = size.width / 2;
-    final double centerY = size.height / 2;
-    final double radius = size.width / 2;
-
-    final int segments = prizes.length;
-    final double sweepAngle = 2 * math.pi / segments;
-
-    for (int i = 0; i < segments; i++) {
-      // Alternate colors
-      if (i % 2 == 0) {
-        paint.color = Colors.orange[300]!;
-      } else {
-        paint.color = Colors.purple[300]!;
-      }
-
-      final double startAngle = i * sweepAngle;
-
-      canvas.drawArc(
-        Rect.fromCircle(center: Offset(centerX, centerY), radius: radius),
-        startAngle,
-        sweepAngle,
-        true,
-        paint,
-      );
-
-      // Draw text
-      final double textAngle = startAngle + (sweepAngle / 2);
-      final double textX = centerX + (radius * 0.6) * math.cos(textAngle);
-      final double textY = centerY + (radius * 0.6) * math.sin(textAngle);
-
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: prizes[i],
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 10,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-
-      textPainter.layout();
-
-      canvas.save();
-      canvas.translate(textX, textY);
-      canvas.rotate(textAngle + math.pi / 2);
-      canvas.translate(-textPainter.width / 2, -textPainter.height / 2);
-      textPainter.paint(canvas, Offset.zero);
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

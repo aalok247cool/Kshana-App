@@ -100,7 +100,6 @@ class DashboardPage extends StatefulWidget {
 }
 
 
-
 void _setupQuickActions() {
   final QuickActions quickActions = const QuickActions();
 
@@ -124,7 +123,6 @@ void _setupQuickActions() {
     // Shortcut functionality will be implemented in a future update
   });
 }
-
 
 
 class _DashboardPageState extends State<DashboardPage> {
@@ -488,16 +486,16 @@ class _DashboardPageState extends State<DashboardPage> {
 
 
 
-          case 'Surprise Zone':
+
+      case 'Surprise Zone':
         page = SurpriseZonePage(
-          currentCoins: _coinBalance,
+          currentCoins: _coinBalance, // Make sure _coinBalance has the correct value
           onCoinsEarned: (earned) {
             setState(() => _coinBalance += earned);
             _saveCoins();
           },
         );
         break;
-
       default:
         print("No matching zone for: $zoneName");
         return;  // Skip if no zone matches
@@ -522,6 +520,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+
     print("BUILDING DASHBOARD UI, USERNAME: $_userName");
     print("Current username: $_userName");
     return Scaffold(
