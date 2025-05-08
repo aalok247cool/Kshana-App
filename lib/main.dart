@@ -89,7 +89,6 @@ class _MyAppState extends State<MyApp> {
 }
 
 
-
 class DashboardPage extends StatefulWidget {
   final Function(Locale) onLocaleChange;
 
@@ -126,7 +125,7 @@ void _setupQuickActions() {
 
 
 class _DashboardPageState extends State<DashboardPage> {
-  int _coinBalance = 0;
+  int _coinBalance = 75425;
   bool _isRewardClaimed = false;
   int currentCoins = 1000;
   String _userName = "User123";
@@ -286,12 +285,11 @@ class _DashboardPageState extends State<DashboardPage> {
 
   // Add this line
 
-  void onCoinsEarned(int earnedCoins) {
+  void updateCoinBalance(int amount) {
     setState(() {
-      currentCoins += earnedCoins;  // Add the earned coins
+      _coinBalance -= amount;
     });
   }
-
   Color get trustScoreColor {
     switch (_trustScore) {
       case 'Yellow':
@@ -340,9 +338,16 @@ class _DashboardPageState extends State<DashboardPage> {
     _loadUserData();
     _setupSharedPrefsListener();
     _setupQuickActions();
-
+    _loadCoinBalance(); // Add this line
   }
 
+
+  Future<void> _loadCoinBalance() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _coinBalance = prefs.getInt('mainCoinBalance') ?? 75425;
+    });
+  }
   void refreshUserData() {
     _loadUserData();
   }
@@ -421,7 +426,11 @@ class _DashboardPageState extends State<DashboardPage> {
       case 'Others Zone':
         page = OthersZonePage(
           currentCoins: currentCoins,
-          onCoinsEarned: onCoinsEarned,
+          onCoinsEarned: (coins) {
+            setState(() {
+              _coinBalance += coins;
+            });
+          },
         );
         break;
 
@@ -481,21 +490,35 @@ class _DashboardPageState extends State<DashboardPage> {
         page = TaskZonePage(onTaskCompleted: _onTaskCompleted);
         break;
       case 'Earnings':
-        page = EarningsZonePage(); // <- this will be your new page for earnings
+        page =  EarningsZonePage(); // Keep it simple for now
         break;
-
-
-
 
       case 'Surprise Zone':
-        page = SurpriseZonePage(
-          currentCoins: _coinBalance, // Make sure _coinBalance has the correct value
-          onCoinsEarned: (earned) {
-            setState(() => _coinBalance += earned);
-            _saveCoins();
-          },
-        );
-        break;
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => SurprizeZone(coinBalance: _coinBalance)),
+        ).then((result) {
+          if (result != null) {
+            print("RESULT FROM SURPRISE ZONE: $result");
+
+            // Update balance
+            setState(() {
+              _coinBalance -= 100; // Just directly subtract 100
+              print("UPDATED COIN BALANCE: $_coinBalance");
+            });
+
+            // Force rebuild
+            Future.delayed(Duration(milliseconds: 100), () {
+              if (mounted) {
+                setState(() {});
+              }
+            });
+          }
+        });
+        return;
+
+
+
       default:
         print("No matching zone for: $zoneName");
         return;  // Skip if no zone matches
@@ -516,7 +539,10 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     }
   }
-
+  Future<void> saveBalance(int balance) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('coinBalance', balance);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -600,7 +626,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 const Icon(Icons.stars, color: Colors.amber),
                 const SizedBox(width: 6),
                 Text(
-                  '$_coinBalance',
+                  '75425', // This is your coin balance
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,

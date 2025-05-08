@@ -289,9 +289,9 @@ class _LoginPageState extends State<LoginPage> {
                               _rememberMe = value ?? false;
                             });
                           },
-                          fillColor: MaterialStateProperty.resolveWith<Color>(
-                                (Set<MaterialState> states) {
-                              if (states.contains(MaterialState.selected)) {
+                          fillColor: WidgetStateProperty.resolveWith<Color>(
+                                (Set<WidgetState> states) {
+                              if (states.contains(WidgetState.selected)) {
                                 return Colors.amber;
                               }
                               return Colors.amber.withOpacity(0.5);

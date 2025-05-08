@@ -1,439 +1,390 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class SurpriseZonePage extends StatefulWidget {
-  // Parameters required for coin management
-  final int currentCoins;
-  final Function(int) onCoinsEarned;
+class SurprizeZone extends StatefulWidget {
+  final int coinBalance;
 
-  // Constructor with required parameters
-  const SurpriseZonePage({
-    super.key,
-    required this.currentCoins,
-    required this.onCoinsEarned,
-  });
+  const SurprizeZone({super.key, required this.coinBalance});
 
   @override
-  _SurpriseZonePageState createState() => _SurpriseZonePageState();
+  _SurprizeZoneState createState() => _SurprizeZoneState();
 }
 
-class _SurpriseZonePageState extends State<SurpriseZonePage> {
-  // For lucky draw
-  bool _hasEnteredLuckyDraw = false;
-  final int _luckyDrawEntryCost = 100; // Changed from 50 to 100 coins
-  int _luckyDrawEntries = 0;
-  final DateTime _drawDate = DateTime(2025, 5, 31); // Example - end of month
+class _SurprizeZoneState extends State<SurprizeZone> {
+  int _investedCoins = 0;
+  bool _hasInvestedToday = false;
+  String _nextDrawDate = "";
+  final List<Map<String, dynamic>> _prizesList = [
+    {"rank": "1st", "prize": "₹10,000", "icon": Icons.emoji_events},
+    {"rank": "2nd", "prize": "₹5,000", "icon": Icons.card_giftcard},
+    {"rank": "3rd", "prize": "₹2,000", "icon": Icons.redeem},
+    {"rank": "4th-10th", "prize": "₹500", "icon": Icons.monetization_on},
+  ];
 
   @override
   void initState() {
     super.initState();
-    print("SURPRISE ZONE: Initializing with coins from main: ${widget.currentCoins}");
-    _checkLuckyDrawEntry();
+    _loadInvestedData();
+    _calculateNextDrawDate();
+    _initializeMainBalance(); // Add this line
   }
 
-  // Helper method to update coins in the parent
-  void _updateCoins(int amount) {
-    print("SURPRISE ZONE: Updating coins by $amount. Main dashboard coins: ${widget.currentCoins}");
-
-    // Notify main.dart about the coin change
-    widget.onCoinsEarned(amount);
-
-    print("SURPRISE ZONE: Coin update sent to main dashboard");
-  }
-
-  Future<void> _checkLuckyDrawEntry() async {
+// Add this new method
+  Future<void> _initializeMainBalance() async {
     final prefs = await SharedPreferences.getInstance();
-    final String entryDate = prefs.getString('luckyDrawEntryDate') ?? '';
-    final String today = DateTime.now().toString().split(' ')[0];
+    if (!prefs.containsKey('mainCoinBalance')) {
+      await prefs.setInt('mainCoinBalance', widget.coinBalance);
+    }
+  }
+
+  Future<void> _loadInvestedData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _investedCoins = prefs.getInt('investedCoins') ?? 0;
+      _hasInvestedToday = prefs.getBool('investedToday_${DateTime.now().day}_${DateTime.now().month}_${DateTime.now().year}') ?? false;
+
+      // Temporarily remove this for testing
+      _hasInvestedToday = false;
+    });
+  }
+
+  Future<void> _saveInvestedData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('investedCoins', _investedCoins);
+    await prefs.setBool('investedToday_${DateTime.now().day}_${DateTime.now().month}_${DateTime.now().year}', true);
+  }
+
+  void _calculateNextDrawDate() {
+    DateTime now = DateTime.now();
+    DateTime nextMonth = DateTime(now.year, now.month + 1, 1);
+    DateTime lastDayOfMonth = DateTime(nextMonth.year, nextMonth.month, 0);
 
     setState(() {
-      _hasEnteredLuckyDraw = entryDate == today;
-      _luckyDrawEntries = prefs.getInt('luckyDrawEntries') ?? 0;
+      _nextDrawDate = "${lastDayOfMonth.day}/${lastDayOfMonth.month}/${lastDayOfMonth.year}";
     });
-
-    print("SURPRISE ZONE: Has entered lucky draw today: $_hasEnteredLuckyDraw");
-    print("SURPRISE ZONE: Lucky draw entries: $_luckyDrawEntries");
   }
 
-  Future<void> _enterLuckyDraw() async {
-    print("SURPRISE ZONE: Attempting to enter lucky draw");
-    print("SURPRISE ZONE: Main dashboard coins: ${widget.currentCoins}, Entry cost: $_luckyDrawEntryCost");
-
-    if (widget.currentCoins < _luckyDrawEntryCost) {
-      _showInsufficientCoinsDialog();
+  void _investCoins() async {
+    if (_hasInvestedToday) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('You have already invested for today!'))
+      );
       return;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final String today = DateTime.now().toString().split(' ')[0];
-
-    // Update coin balance using the centralized method
-    _updateCoins(-_luckyDrawEntryCost);
+    if (widget.coinBalance < 100) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Not enough coins! You need 100 coins to invest.'))
+      );
+      return;
+    }
 
     setState(() {
-      _hasEnteredLuckyDraw = true;
-      _luckyDrawEntries++;
+      _investedCoins += 100;
+      _hasInvestedToday = true;
     });
 
-    // Save entry state
-    await prefs.setString('luckyDrawEntryDate', today);
-    await prefs.setInt('luckyDrawEntries', _luckyDrawEntries);
+    await _saveInvestedData();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('DASHBOARD_COIN_BALANCE', widget.coinBalance - 100);
+    print("SAVED NEW BALANCE: ${widget.coinBalance - 100}");
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('You have entered the monthly lucky draw!'),
-        backgroundColor: Colors.amber.shade800,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10.0),
-        ),
-      ),
+        SnackBar(content: Text('Successfully invested 100 coins for the monthly draw!'))
     );
 
-    print("SURPRISE ZONE: Entered lucky draw. Entries now: $_luckyDrawEntries");
-  }
-
-  void _showInsufficientCoinsDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.black,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: Colors.red, width: 2),
-        ),
-        title: Text(
-          'Insufficient Coins',
-          style: TextStyle(
-            color: Colors.red,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Text(
-          'You don\'t have enough coins for this action.',
-          style: TextStyle(color: Colors.white),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: Text(
-              'OK',
-              style: TextStyle(color: Colors.amber),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  int _daysUntilDraw() {
-    final now = DateTime.now();
-    return _drawDate.difference(now).inDays;
+    await Future.delayed(Duration(seconds: 1));
+    Navigator.pop(context, 100);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text(
-          'Surprise Zone',
-          style: TextStyle(
-            color: Colors.amber,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: Colors.black,
-        iconTheme: IconThemeData(color: Colors.amber),
+        title: Text("Monthly Lucky Draw"),
+        backgroundColor: Colors.amber,
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black,
-              Color(0xFF1A1A1A),
-            ],
-          ),
-        ),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Lucky Draw Section
-                _buildLuckyDrawSection(),
-
-                // Information Section about Surprise Zone
-                SizedBox(height: 24),
-                _buildInfoSection(),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoSection() {
-    return Card(
-      elevation: 8,
-      color: Colors.black,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.amber.withOpacity(0.5), width: 2),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SingleChildScrollView(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.amber),
-                SizedBox(width: 8),
-                Text(
-                  'About Surprise Zone',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber,
-                  ),
+            // Banner Section
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.amber.shade300, Colors.amber.shade700],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              ],
-            ),
-            SizedBox(height: 16),
-            Text(
-              'The Surprise Zone is where you can participate in exciting events and win big rewards!',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
               ),
-            ),
-            SizedBox(height: 12),
-            Text(
-              'Enter our monthly lucky draw for a chance to win real cash prizes. The more entries you have, the better your chances!',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 15,
-              ),
-            ),
-            SizedBox(height: 12),
-            Text(
-              'Keep an eye out for special events and limited-time offers that will appear in this zone.',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 15,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLuckyDrawSection() {
-    return Card(
-      elevation: 8,
-      color: Colors.black,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.amber.withOpacity(0.5), width: 2),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.amber.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 10,
-              offset: Offset(0, 0),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+              child: Column(
                 children: [
-                  Icon(Icons.star, color: Colors.amber),
-                  SizedBox(width: 8),
                   Text(
-                    'Monthly Lucky Draw',
+                    "Monthly Lucky Winner",
                     style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.amber,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+                        ]
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    "Invest 100 coins daily for a chance to win big prizes!",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.white,
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 16),
+            ),
 
-
-              // Prize info
-              Container(
-                padding: const EdgeInsets.all(16),
+            // Coin balance display
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Container(
+                padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.amber.withOpacity(0.1),
-                      Colors.amber.withOpacity(0.05),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                  color: Colors.amber.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.amber.shade300, width: 2),
                 ),
-                child: Column(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Grand Prizes',
+                      "Available Coin Balance:",
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.amber,
                       ),
                     ),
-                    SizedBox(height: 8),
-                    _buildPrizeRow('1st Prize', '₹10,000'),
-                    _buildPrizeRow('2nd Prize', '₹5,000'),
-                    _buildPrizeRow('3rd Prize', '₹2,000'),
-                    _buildPrizeRow('4th-10th', '₹500 each'),
+                    Row(
+                      children: [
+                        Icon(Icons.monetization_on, color: Colors.amber),
+                        SizedBox(width: 4),
+                        Text(
+                          "${widget.coinBalance}",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
+            ),
 
-              SizedBox(height: 16),
-
-              // Draw info
-              Container(
-                padding: const EdgeInsets.all(12),
+            // Invested coins and next draw info
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Container(
+                padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.black,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.amber.withOpacity(0.2)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.3),
+                      spreadRadius: 1,
+                      blurRadius: 3,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Column(
                   children: [
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Icon(Icons.event, color: Colors.amber),
-                        SizedBox(width: 8),
                         Text(
-                          'Draw Date: ${_drawDate.day}/${_drawDate.month}/${_drawDate.year}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                          "Total Invested Coins:",
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        Row(
+                          children: [
+                            Icon(Icons.savings, color: Colors.amber),
+                            SizedBox(width: 4),
+                            Text(
+                              "$_investedCoins",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                     SizedBox(height: 12),
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Icon(Icons.hourglass_top, color: Colors.amber),
-                        SizedBox(width: 8),
                         Text(
-                          'Days Left: ${_daysUntilDraw()}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                          "Next Draw Date:",
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        Row(
+                          children: [
+                            Icon(Icons.event, color: Colors.amber),
+                            SizedBox(width: 4),
+                            Text(
+                              _nextDrawDate,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(Icons.confirmation_number, color: Colors.amber),
-                        SizedBox(width: 8),
-                        Text(
-                          'Your Entries: $_luckyDrawEntries',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                    SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: _investCoins,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber,
+                        padding: EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
                         ),
-                      ],
-                    ),
-                    SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(Icons.account_balance_wallet, color: Colors.amber),
-                        SizedBox(width: 8),
-                        Text(
-                          'Your Coins: ${widget.currentCoins}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                      ),
+                      child: Text(
+                        "Invest 100 Coins (Testing)",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
               ),
+            ),
 
-              SizedBox(height: 16),
-
-
-
-              // Entry button
-              ElevatedButton(
-                onPressed: _hasEnteredLuckyDraw ? null : _enterLuckyDraw,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _hasEnteredLuckyDraw ? Colors.grey : Colors.amber,
-                  foregroundColor: Colors.black,
-                  disabledBackgroundColor: Colors.grey.shade700,
-                  disabledForegroundColor: Colors.grey.shade300,
-                  elevation: _hasEnteredLuckyDraw ? 0 : 8,
-                  shadowColor: Colors.amber.withOpacity(0.6),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+            // Prizes section
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Lucky Draw Prizes",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+                  SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.3),
+                          spreadRadius: 1,
+                          blurRadius: 3,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: NeverScrollableScrollPhysics(),
+                      itemCount: _prizesList.length,
+                      separatorBuilder: (context, index) => Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.amber,
+                            child: Icon(_prizesList[index]["icon"], color: Colors.white),
+                          ),
+                          title: Text(
+                            "${_prizesList[index]["rank"]} Prize",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          trailing: Text(
+                            "${_prizesList[index]["prize"]}",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.amber.shade800,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Rules section
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.amber.shade200),
                 ),
-                child: Text(
-                  _hasEnteredLuckyDraw
-                      ? 'Already Entered Today'
-                      : 'Enter Lucky Draw (₹1 or $_luckyDrawEntryCost coins)',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.amber),
+                        SizedBox(width: 8),
+                        Text(
+                          "How It Works",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 12),
+                    _buildRuleText("Invest 100 coins daily to increase your chances."),
+                    _buildRuleText("Each investment gives you one entry in the monthly draw."),
+                    _buildRuleText("Winners are announced on the last day of each month."),
+                    _buildRuleText("Prizes will be credited to your account as coins equivalent to the prize amount within 48 hours."),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+
+            SizedBox(height: 20),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildPrizeRow(String place, String amount) {
+  Widget _buildRuleText(String text) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(place, style: TextStyle(color: Colors.white70)),
-          Text(
-            amount,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.amber,
-            ),
+          Text("• ", style: TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Text(text),
           ),
         ],
       ),
