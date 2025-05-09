@@ -24,6 +24,8 @@ import 'pages/login_page.dart';
 import 'dart:async';
 import 'pages/kyc_page.dart';
 import 'package:quick_actions/quick_actions.dart';
+import 'pages/media_zone_page.dart';
+import 'pages/kshana_reels_page.dart';
 
 
 
@@ -131,6 +133,8 @@ class _DashboardPageState extends State<DashboardPage> {
   String _userName = "User123";
   File? _profileImage;
   final String _trustScore = 'Red';
+
+  List<Map<String, dynamic>> _userShortcuts = [];
 
   // Add this at the top of your _DashboardPageState class
   static const MethodChannel _shortcutChannel = MethodChannel('com.kshana.app/shortcuts');
@@ -281,7 +285,14 @@ class _DashboardPageState extends State<DashboardPage> {
       });
     }
   }
-
+  @override
+  Future<bool> didPopRoute() {
+    // Force refresh when returning to this route
+    setState(() {
+      _loadCoinBalance();
+    });
+    return Future.value(false);
+  }
 
   // Add this line
 
@@ -339,14 +350,21 @@ class _DashboardPageState extends State<DashboardPage> {
     _setupSharedPrefsListener();
     _setupQuickActions();
     _loadCoinBalance(); // Add this line
+    _loadUserShortcuts();
+
   }
 
 
   Future<void> _loadCoinBalance() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _coinBalance = prefs.getInt('mainCoinBalance') ?? 75425;
-    });
+    final newBalance = prefs.getInt('coinBalance') ?? 75425;
+    print("LOADED BALANCE FROM STORAGE: $newBalance");
+
+    if (mounted) {
+      setState(() {
+        _coinBalance = newBalance;
+      });
+    }
   }
   void refreshUserData() {
     _loadUserData();
@@ -489,9 +507,30 @@ class _DashboardPageState extends State<DashboardPage> {
       case 'Task Zone':
         page = TaskZonePage(onTaskCompleted: _onTaskCompleted);
         break;
+
       case 'Earnings':
-        page =  EarningsZonePage(); // Keep it simple for now
-        break;
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => EarningsZonePage(
+            coinBalance: _coinBalance,
+          )),
+        );
+
+        if (result != null) {
+          if (result is Map && result.containsKey('newBalance')) {
+            // Directly set the new balance
+            setState(() {
+              _coinBalance = result['newBalance'];
+            });
+            print("DIRECTLY UPDATED BALANCE TO: ${result['newBalance']}");
+          } else if (result is int) {
+            setState(() {
+              _coinBalance -= result;
+            });
+          }
+          _saveCoins();
+        }
+        return;
 
       case 'Surprise Zone':
         Navigator.push(
@@ -538,7 +577,11 @@ class _DashboardPageState extends State<DashboardPage> {
         _saveCoins();
       }
     }
+    setState(() {
+      _loadCoinBalance();
+    });
   }
+
   Future<void> saveBalance(int balance) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('coinBalance', balance);
@@ -626,7 +669,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 const Icon(Icons.stars, color: Colors.amber),
                 const SizedBox(width: 6),
                 Text(
-                  '75425', // This is your coin balance
+                  '$_coinBalance', // This is your coin balance
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -681,7 +724,35 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
 
                   const SizedBox(height: 20),
-
+// Refresh Balance Button
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade900,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.amber.withOpacity(0.3), width: 1),
+                      ),
+                      child: TextButton.icon(
+                        icon: Icon(Icons.refresh, color: Colors.amber),
+                        label: Text(
+                          "Refresh Balance",
+                          style: TextStyle(color: Colors.amber),
+                        ),
+                        onPressed: () async {
+                          await _loadCoinBalance();
+                          setState(() {});
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Balance updated: $_coinBalance coins')),
+                          );
+                        },
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ),
                   // 🔸 Keep all your existing cards and widgets below
                   // Redeem Card
                   Card(
@@ -747,39 +818,6 @@ class _DashboardPageState extends State<DashboardPage> {
                   const SizedBox(height: 10),
 
 
-                  // 🔸 Spend Coins Card
-                  Card(
-                    color: Colors.grey.shade900,
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: ListTile(
-                      leading: const Icon(Icons.bolt, color: Colors.purpleAccent),
-                      title: const Text('Spend Coins', style: TextStyle(color: Colors.white)),
-                      subtitle: const Text('Unlock Features & Boost Earnings', style: TextStyle(color: Colors.white54)),
-                      trailing: ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => SpendCoinsPage(
-                                currentCoins: _coinBalance,
-                                onCoinsSpent: (spentAmount) {
-                                  setState(() {
-                                    _coinBalance -= spentAmount;
-                                  });
-                                  _saveCoins();
-                                },
-                              ),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
-                        child: const Text('Use'),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
                   // 🔸 Daily Reward Card
                   Card(
                     color: Colors.grey.shade900,
@@ -801,6 +839,45 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                   const SizedBox(height: 20),
 
+                  // Add this after the Daily Reward Card and before the grid
+                  const SizedBox(height: 20),
+
+// 🔸Shortcuts Highlights Row
+                  Container(
+                    height: 85,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      children: [
+                        // Add shortcut button
+                        _buildShortcutItem(
+                          icon: Icons.add,
+                          label: "Add",
+                          onTap: () {
+                            // Show dialog to select what to add as shortcut
+                            _showAddShortcutDialog();
+                          },
+                          isAdd: true,
+                        ),
+
+
+                        // User shortcuts with explicit rebuilding
+                        if (_userShortcuts.isNotEmpty)
+                          ...List.generate(_userShortcuts.length, (index) {
+                            var shortcut = _userShortcuts[index];
+                            return _buildShortcutItem(
+                              icon: IconData(shortcut['icon'], fontFamily: 'MaterialIcons'),
+                              label: shortcut['title'],
+                              route: shortcut['route'],
+                              onTap: () {
+                                _navigateToRoute(shortcut['route']);
+                              },
+                            );
+                          }),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
 
                   // 🔸 Zones Grid
                   GridView.count(
@@ -810,7 +887,9 @@ class _DashboardPageState extends State<DashboardPage> {
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
                     children: [
-                      _buildZoneCard('Earnings', Icons.monetization_on, EarningsZonePage()),
+                      _buildZoneCard('Earnings', Icons.monetization_on, EarningsZonePage(
+                        coinBalance: _coinBalance,
+                      )),
                       _buildZoneCard('Others Zone', Icons.apps),
 
                       _buildZoneCard('Money Tools', Icons.account_balance, MoneyToolsZonePage(
@@ -885,6 +964,370 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ),
       ),
+    );
+  }
+  Future<void> _saveUserShortcuts() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> serializedShortcuts = _userShortcuts.map((shortcut) {
+      return "${shortcut['title']}|${shortcut['icon']}|${shortcut['route']}";
+    }).toList();
+
+    await prefs.setStringList('userShortcuts', serializedShortcuts);
+  }
+
+  Future<void> _loadUserShortcuts() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String>? serializedShortcuts = prefs.getStringList('userShortcuts');
+
+    if (serializedShortcuts != null) {
+      _userShortcuts = serializedShortcuts.map((shortcut) {
+        List<String> parts = shortcut.split('|');
+        return {
+          'title': parts[0],
+          'icon': int.parse(parts[1]),
+          'route': parts[2],
+        };
+      }).toList();
+    }
+  }
+
+  void _navigateToRoute(String route) {
+    switch (route) {
+      case 'daily_reward':
+        _claimDailyReward();
+        break;
+      case 'surprise_zone':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => SurprizeZone(coinBalance: _coinBalance)),
+        );
+        break;
+
+      case 'task_zone':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => TaskZonePage(onTaskCompleted: _onTaskCompleted)),
+        );
+        break;
+    // Add these new cases
+      case 'media_zone':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => MediaPaidZonePage()),
+        );
+        break;
+      case 'kshana_reels':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => KshanaReelsPage()),
+        );
+        break;
+      case 'game_zone':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => GameZonePage(
+            currentCoins: _coinBalance,
+            onCoinsEarned: (earned) {
+              setState(() => _coinBalance += earned);
+              _saveCoins();
+            },
+          )),
+        );
+        break;
+      case 'shopping_zone':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => OnlineShoppingPage(
+            currentCoins: _coinBalance,
+            onCoinsEarned: (earned) {
+              setState(() => _coinBalance += earned);
+              _saveCoins();
+            },
+          )),
+        );
+        break;
+      case 'food_zone':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => OrderFoodPage(
+            currentCoins: _coinBalance,
+            onCoinsEarned: (earned) {
+              setState(() => _coinBalance += earned);
+              _saveCoins();
+            },
+          )),
+        );
+        break;
+      case 'test_shortcut':
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Test shortcut tapped!')),
+        );
+        break;
+      default:
+        print("Unknown route: $route");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Route not implemented: $route')),
+        );
+    }
+  }
+
+  void _addShortcut(String title, IconData icon, String route) {
+    bool alreadyExists = _userShortcuts.any((s) => s['route'] == route);
+
+    if (!alreadyExists) {
+
+      // Important: Create a new list instead of modifying the existing one
+      setState(() {
+        _userShortcuts = [
+          ..._userShortcuts,
+          {
+            'title': title,
+            'icon': icon.codePoint,
+            'route': route,
+          }
+        ];
+      });
+
+      _saveUserShortcuts();
+
+      // Force another rebuild after a delay
+      Future.delayed(Duration(milliseconds: 500), () {
+        if (mounted) setState(() {});
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$title shortcut added!')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$title shortcut already exists')),
+      );
+    }
+  }
+  // Add the new method right here
+  void _showDeleteShortcutDialog(String shortcutLabel, String route) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey.shade900,
+        title: Text("Remove Shortcut", style: TextStyle(color: Colors.amber)),
+        content: Text(
+            "Remove $shortcutLabel from your shortcuts?",
+            style: TextStyle(color: Colors.white)
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () {
+              // Remove the shortcut
+              setState(() {
+                _userShortcuts.removeWhere((s) => s['route'] == route);
+              });
+              _saveUserShortcuts();
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('$shortcutLabel removed')),
+              );
+            },
+            child: Text("Remove", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShortcutItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool isAdd = false,
+    String route = '',
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 15),
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: isAdd ? null : () {
+          // Show delete confirmation
+          _showDeleteShortcutDialog(label, route);
+        },
+        child: Column(
+          // rest of method
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isAdd ? Colors.grey.shade800 : Colors.grey.shade900,
+                border: Border.all(
+                  color: isAdd ? Colors.white30 : Colors.amber.withOpacity(0.7),
+                  width: 1.5,
+                ),
+              ),
+              child: Icon(
+                icon,
+                color: isAdd ? Colors.white54 : Colors.amber,
+                size: 28,
+              ),
+            ),
+            SizedBox(height: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: isAdd ? Colors.white54 : Colors.amber,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddShortcutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey.shade900,
+        title: Text(
+          "Add Shortcut",
+          style: TextStyle(color: Colors.amber),
+        ),
+        content: Container(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              _buildShortcutOption(
+                icon: Icons.monetization_on,
+                title: "Daily Reward",
+                description: "Claim daily coins",
+                onTap: () {
+                  Navigator.pop(context);
+                  // Add delay for better state management
+                  Future.delayed(Duration(milliseconds: 100), () {
+                    _addShortcut("Daily", Icons.monetization_on, "daily_reward");
+                  });
+                },
+              ),
+
+              _buildShortcutOption(
+                icon: Icons.card_giftcard,
+                title: "Surprise Zone",
+                description: "Participate in lucky draws",
+                onTap: () {
+                  Navigator.pop(context);
+                  // Add delay for better state management
+                  Future.delayed(Duration(milliseconds: 100), () {
+                    _addShortcut("Surprise", Icons.card_giftcard, "surprise_zone");
+                  });
+                },
+              ),
+// Media Zones
+              _buildShortcutOption(
+                icon: Icons.ondemand_video,
+                title: "Media Paid Zone",
+                description: "Watch videos to earn",
+                onTap: () {
+                  Navigator.pop(context);
+                  Future.delayed(Duration(milliseconds: 100), () {
+                  _addShortcut("Media", Icons.ondemand_video, "media_zone");
+                  });
+                },
+              ),
+
+              _buildShortcutOption(
+                icon: Icons.video_library,
+                title: "Kshana Reels",
+                description: "Watch reels to earn",
+                onTap: () {
+                  Navigator.pop(context);
+                  Future.delayed(Duration(milliseconds: 100), () {
+                  _addShortcut("Reels", Icons.video_library, "kshana_reels");
+                  });
+                },
+              ),
+
+// Other zones
+              _buildShortcutOption(
+                icon: Icons.games,
+                title: "Game Zone",
+                description: "Play games to earn",
+                onTap: () {
+                  Navigator.pop(context);
+                  Future.delayed(Duration(milliseconds: 100), () {
+                  _addShortcut("Games", Icons.games, "game_zone");
+                  });
+                },
+              ),
+
+              _buildShortcutOption(
+                icon: Icons.shopping_cart,
+                title: "Online Shopping",
+                description: "Earn from shopping",
+                onTap: () {
+                  Navigator.pop(context);
+                  Future.delayed(Duration(milliseconds: 100), () {
+                  _addShortcut("Shopping", Icons.shopping_cart, "shopping_zone");
+    });
+  },
+  ),
+
+              _buildShortcutOption(
+                icon: Icons.restaurant,
+                title: "Order Food",
+                description: "Earn from food orders",
+                onTap: () {
+                  Navigator.pop(context);
+                  Future.delayed(Duration(milliseconds: 100), () {
+                  _addShortcut("Food", Icons.restaurant, "food_zone");
+                  });
+                },
+              ),
+              _buildShortcutOption(
+                icon: Icons.task_alt,
+                title: "Task Zone",
+                description: "Complete tasks for coins",
+                onTap: () {
+                  Navigator.pop(context);
+                  Future.delayed(Duration(milliseconds: 100), () {
+                  _addShortcut("Tasks", Icons.task_alt, "task_zone");
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
+  }
+
+// Add this helper method
+  Widget _buildShortcutOption({
+    required IconData icon,
+    required String title,
+    required String description,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: Colors.grey.shade800,
+        child: Icon(icon, color: Colors.amber),
+      ),
+      title: Text(title, style: TextStyle(color: Colors.white)),
+      subtitle: Text(description, style: TextStyle(color: Colors.white70, fontSize: 12)),
+      onTap: onTap,
     );
   }
 }

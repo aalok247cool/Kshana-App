@@ -87,16 +87,23 @@ class _SurprizeZoneState extends State<SurprizeZone> {
 
     await _saveInvestedData();
 
+    // Get the true current balance
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('DASHBOARD_COIN_BALANCE', widget.coinBalance - 100);
-    print("SAVED NEW BALANCE: ${widget.coinBalance - 100}");
+    final currentBalance = prefs.getInt('coinBalance') ?? widget.coinBalance;
+    final newBalance = currentBalance - 100;
+
+    // Save it
+    await prefs.setInt('coinBalance', newBalance);
+    print("SAVED NEW BALANCE IN SURPRISE ZONE: $newBalance");
 
     ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Successfully invested 100 coins for the monthly draw!'))
     );
 
     await Future.delayed(Duration(seconds: 1));
-    Navigator.pop(context, 100);
+
+    // Return to previous screen with a special signal
+    Navigator.pop(context, {'spent': 100, 'newBalance': newBalance});
   }
 
   @override

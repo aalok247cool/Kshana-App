@@ -8,10 +8,12 @@ import 'surprise_zone.dart';
 
 class EarningsZonePage extends StatelessWidget {
   final Function(int)? onCoinSpent;
+  final int coinBalance;
 
   const EarningsZonePage({
     super.key,
     this.onCoinSpent,
+    required this.coinBalance,
   });
 
   @override
@@ -42,7 +44,7 @@ class EarningsZonePage extends StatelessWidget {
             })),
             _buildFeatureCard(context, 'Referral Zone', Icons.share, const ReferralZonePage()),
             _buildFeatureCard(context, 'Surprise Zone', Icons.card_giftcard, SurprizeZone(
-              coinBalance: 75425,
+              coinBalance: coinBalance, // Use the passed balance instead of hardcoding
             )),
           ],
         ),
@@ -52,12 +54,18 @@ class EarningsZonePage extends StatelessWidget {
 
   Widget _buildFeatureCard(BuildContext context, String title, IconData icon, Widget? page) {
     return GestureDetector(
-      onTap: () {
+      onTap: () async {  // Add async here
         if (page != null) {
-          Navigator.push(
+          final result = await Navigator.push(  // Add await and capture result
             context,
             MaterialPageRoute(builder: (context) => page),
           );
+
+          // Handle the result if it's from SurprizeZone
+          if (result != null && title == 'Surprise Zone') {
+            // Pass result back to main dashboard
+            Navigator.pop(context, result);
+          }
         } else {
           showDialog(
             context: context,
@@ -75,6 +83,7 @@ class EarningsZonePage extends StatelessWidget {
           );
         }
       },
+
       child: Card(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         elevation: 6,
