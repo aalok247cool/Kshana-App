@@ -90,12 +90,21 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
+<<<<<<< HEAD
             VALUE "FileDescription", "fresh_kshana_app" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "fresh_kshana_app" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
             VALUE "OriginalFilename", "fresh_kshana_app.exe" "\0"
             VALUE "ProductName", "fresh_kshana_app" "\0"
+=======
+            VALUE "FileDescription", "kshana_app" "\0"
+            VALUE "FileVersion", VERSION_AS_STRING "\0"
+            VALUE "InternalName", "kshana_app" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
+            VALUE "OriginalFilename", "kshana_app.exe" "\0"
+            VALUE "ProductName", "kshana_app" "\0"
+>>>>>>> 9618a4cc90c60590183dbc13f99f9260210435c7
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -1,6 +1,11 @@
 {
+<<<<<<< HEAD
     "name": "fresh_kshana_app",
     "short_name": "fresh_kshana_app",
+=======
+    "name": "kshana_app",
+    "short_name": "kshana_app",
+>>>>>>> 9618a4cc90c60590183dbc13f99f9260210435c7
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

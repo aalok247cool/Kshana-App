@@ -46,7 +46,11 @@ dependencies:
   confetti: ^0.7.0
   flutter_inappwebview: ^6.1.5
   quick_actions: ^1.0.5
+<<<<<<< HEAD
   flutter_screenutil: ^5.9.0
+=======
+
+>>>>>>> 9618a4cc90c60590183dbc13f99f9260210435c7
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

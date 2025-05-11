@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # fresh_kshana_app
+=======
+# kshana_app
+>>>>>>> 9618a4cc90c60590183dbc13f99f9260210435c7
 
 A new Flutter project.
 

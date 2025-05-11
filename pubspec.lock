@@ -219,6 +219,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.28"
+<<<<<<< HEAD
   flutter_screenutil:
     dependency: "direct main"
     description:
@@ -227,6 +228,8 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.9.3"
+=======
+>>>>>>> 9618a4cc90c60590183dbc13f99f9260210435c7
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -257,10 +260,17 @@ packages:
     dependency: transitive
     description:
       name: http
+<<<<<<< HEAD
       sha256: "2c11f3f94c687ee9bad77c171151672986360b2b001d109814ee7140b2cf261b"
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+=======
+      sha256: fe7ab022b76f3034adc518fb6ea04a82387620e19977665ea18d30a1cf43442f
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.3.0"
+>>>>>>> 9618a4cc90c60590183dbc13f99f9260210435c7
   http_parser:
     dependency: transitive
     description:
@@ -790,10 +800,17 @@ packages:
     dependency: transitive
     description:
       name: video_player_android
+<<<<<<< HEAD
       sha256: "1f4e8e0e02403452d699ef7cf73fe9936fac8f6f0605303d111d71acb375d1bc"
       url: "https://pub.dev"
     source: hosted
     version: "2.8.3"
+=======
+      sha256: ae7d4f1b41e3ac6d24dd9b9d5d6831b52d74a61bdd90a7a6262a33d8bb97c29a
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.8.2"
+>>>>>>> 9618a4cc90c60590183dbc13f99f9260210435c7
   video_player_avfoundation:
     dependency: transitive
     description:
